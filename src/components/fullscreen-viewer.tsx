@@ -53,15 +53,15 @@ export function FullscreenViewer({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-[#0d1611]/90 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6"
+        className="fixed inset-0 bg-[#0d1611]/90 backdrop-blur-md z-50 flex items-center justify-center p-0"
         onClick={onClose}
       >
         <motion.div 
-          initial={{ scale: 0.95, y: 15 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.95, y: 15 }}
+          initial={{ opacity: 0, scale: 0.99 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.99 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-[#d1ded7]/30"
+          className="bg-white w-screen h-screen overflow-hidden flex flex-col shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -160,17 +160,17 @@ export function FullscreenViewer({
             )}
 
             {/* Active Image Page Frame */}
-            <div className="max-w-full max-h-full flex items-center justify-center p-4 relative bg-white/5 rounded-2xl border border-white/5 shadow-xl">
+            <div className="max-w-full max-h-full flex items-center justify-center p-2 relative bg-white/5 rounded-2xl border border-white/5 shadow-xl">
               {currentPage.thumbnailUrl ? (
                 <motion.img 
                   key={fullscreenIndex}
                   src={currentPage.thumbnailUrl}
                   alt={`Full-screen Page ${fullscreenIndex + 1}`}
                   style={{ rotate: `${currentPage.rotation}deg` }}
-                  initial={{ scale: 0.95, opacity: 0 }}
+                  initial={{ scale: 0.98, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ duration: 0.2 }}
-                  className="max-h-[60vh] max-w-full object-contain pointer-events-none drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-transform duration-200"
+                  className="h-[calc(100vh-140px)] md:h-[calc(100vh-120px)] max-h-full max-w-full object-contain pointer-events-none drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-transform duration-200"
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center space-y-3 p-12">
