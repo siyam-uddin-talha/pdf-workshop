@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-sans), sans-serif;
+  --font-outfit: var(--font-outfit), sans-serif;
+  --font-mono: var(--font-mono), monospace;
+}

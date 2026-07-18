@@ -1,0 +1,6 @@
+{
+  "name": "PDF Workshop",
+  "description": "An elegant, browser-powered PDF workshop for merging, splitting, reordering, rotating, watermarking, password-protecting, and compressing documents.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
