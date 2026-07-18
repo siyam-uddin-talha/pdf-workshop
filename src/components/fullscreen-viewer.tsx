@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   X, 
   ChevronLeft, 
@@ -8,7 +8,8 @@ import {
   FileText 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { QueuePage } from '../types/pdf';
+import { QueuePage, SourceFile } from '../types/pdf';
+import { renderPageToDataUrl } from '@/lib/pdf-service';
 
 interface FullscreenViewerProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface FullscreenViewerProps {
   fullscreenIndex: number;
   setFullscreenIndex: (index: number | ((prev: number) => number)) => void;
   queue: QueuePage[];
+  sourceFiles: SourceFile[];
 }
 
 export function FullscreenViewer({
@@ -23,7 +25,8 @@ export function FullscreenViewer({
   onClose,
   fullscreenIndex,
   setFullscreenIndex,
-  queue
+  queue,
+  sourceFiles
 }: FullscreenViewerProps) {
   // Keyboard navigation for full screen modal
   useEffect(() => {
@@ -43,9 +46,76 @@ export function FullscreenViewer({
     return () => window.removeEventListener('keydown', handleFullscreenKeys);
   }, [isOpen, queue.length, onClose, setFullscreenIndex]);
 
-  if (!isOpen || queue.length === 0 || !queue[fullscreenIndex]) return null;
+  const [highResUrl, setHighResUrl] = useState<string | null>(null);
+  const [isLoadingHighRes, setIsLoadingHighRes] = useState<boolean>(false);
 
   const currentPage = queue[fullscreenIndex];
+
+  useEffect(() => {
+    if (!isOpen || !currentPage) return;
+
+    let active = true;
+
+    if (currentPage.isBlank) {
+      Promise.resolve().then(() => {
+        if (active) {
+          setHighResUrl(null);
+          setIsLoadingHighRes(false);
+        }
+      });
+      return;
+    }
+
+    if (currentPage.imageBytes) {
+      Promise.resolve().then(() => {
+        if (active) {
+          if (currentPage.thumbnailUrl) {
+            setHighResUrl(currentPage.thumbnailUrl);
+          }
+          setIsLoadingHighRes(false);
+        }
+      });
+      return;
+    }
+
+    const sourceFile = sourceFiles.find(f => f.id === currentPage.sourceId);
+    if (!sourceFile) {
+      Promise.resolve().then(() => {
+        if (active) {
+          setHighResUrl(null);
+          setIsLoadingHighRes(false);
+        }
+      });
+      return;
+    }
+
+    Promise.resolve().then(() => {
+      if (active) {
+        setIsLoadingHighRes(true);
+      }
+    });
+
+    // Render at 1.8x scale (sharp, readable resolution on high-DPI screens)
+    renderPageToDataUrl(sourceFile.bytes, currentPage.originalPageIndex, 1.8)
+      .then(url => {
+        if (active) {
+          setHighResUrl(url);
+          setIsLoadingHighRes(false);
+        }
+      })
+      .catch(err => {
+        console.error('High-res render error:', err);
+        if (active) {
+          setIsLoadingHighRes(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, fullscreenIndex, currentPage, sourceFiles]);
+
+  if (!isOpen || queue.length === 0 || !currentPage) return null;
 
   return (
     <AnimatePresence>
@@ -157,21 +227,29 @@ export function FullscreenViewer({
               >
                 <ChevronRight className="w-6 h-6" />
               </button>
-            )}
-
-            {/* Active Image Page Frame */}
+            )}            {/* Active Image Page Frame */}
             <div className="max-w-full max-h-full flex items-center justify-center p-2 relative bg-white/5 rounded-2xl border border-white/5 shadow-xl">
-              {currentPage.thumbnailUrl ? (
-                <motion.img 
-                  key={fullscreenIndex}
-                  src={currentPage.thumbnailUrl}
-                  alt={`Full-screen Page ${fullscreenIndex + 1}`}
-                  style={{ rotate: `${currentPage.rotation}deg` }}
-                  initial={{ scale: 0.98, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.2 }}
-                  className="h-[calc(100vh-140px)] md:h-[calc(100vh-120px)] max-h-full max-w-full object-contain pointer-events-none drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-transform duration-200"
-                />
+              {highResUrl || currentPage.thumbnailUrl ? (
+                <div className="relative flex items-center justify-center">
+                  <motion.img 
+                    key={fullscreenIndex}
+                    src={highResUrl || currentPage.thumbnailUrl}
+                    alt={`Full-screen Page ${fullscreenIndex + 1}`}
+                    style={{ rotate: `${currentPage.rotation}deg` }}
+                    initial={{ scale: 0.98, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.2 }}
+                    className="h-[calc(100vh-140px)] md:h-[calc(100vh-120px)] max-h-full max-w-full object-contain pointer-events-none drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)] transition-transform duration-200"
+                  />
+                  {isLoadingHighRes && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/35 backdrop-blur-xs rounded-xl">
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-[10px] text-teal-400 font-mono bg-black/60 px-2 py-0.5 rounded">Sharp Focus...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center space-y-3 p-12">
                   <div className="w-8 h-8 border-3 border-teal-500 border-t-transparent rounded-full animate-spin" />
@@ -179,7 +257,6 @@ export function FullscreenViewer({
                 </div>
               )}
             </div>
-
             {/* Footer bar indicator */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-[10px] font-mono px-3 py-1 rounded-full backdrop-blur-xs">
               PAGE {fullscreenIndex + 1} OF {queue.length}

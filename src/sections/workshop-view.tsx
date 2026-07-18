@@ -1127,6 +1127,7 @@ export function WorkshopView() {
         fullscreenIndex={fullscreenIndex}
         setFullscreenIndex={setFullscreenIndex}
         queue={queue}
+        sourceFiles={sourceFiles}
       />
 
       {/* FOOTER SECTION */}
