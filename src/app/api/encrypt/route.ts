@@ -7,6 +7,31 @@ import os from 'os';
 
 const execFileAsync = promisify(execFile);
 
+async function getGsPath(): Promise<string> {
+  const possiblePaths = [
+    'gs',
+    '/usr/bin/gs',
+    '/usr/local/bin/gs',
+    '/opt/homebrew/bin/gs',
+  ];
+
+  for (const p of possiblePaths) {
+    try {
+      if (p === 'gs') {
+        await execFileAsync('gs', ['--version']);
+        return 'gs';
+      } else {
+        await fs.access(p);
+        return p;
+      }
+    } catch {
+      // Continue to next path
+    }
+  }
+
+  throw new Error('Ghostscript binary (gs) not found. Please install Ghostscript (e.g., run "brew install ghostscript").');
+}
+
 export async function POST(req: NextRequest) {
   let inputPath = '';
   let outputPath = '';
@@ -62,7 +87,8 @@ export async function POST(req: NextRequest) {
     gsArgs.push(`-sOutputFile=${outputPath}`, inputPath);
 
     // Execute Ghostscript
-    await execFileAsync('/usr/bin/gs', gsArgs);
+    const gsPath = await getGsPath();
+    await execFileAsync(gsPath, gsArgs);
 
     // Read the processed PDF output
     const processedBuffer = await fs.readFile(outputPath);
