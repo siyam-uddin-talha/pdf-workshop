@@ -458,11 +458,36 @@ export function WorkshopView() {
     URL.revokeObjectURL(url);
   };
 
+  // HELPER: Check if visual workspace represents the exact unmodified original PDF file
+  const isQueueUnmodified = (): boolean => {
+    if (sourceFiles.length !== 1) return false;
+    const file = sourceFiles[0];
+    if (queue.length !== file.totalPages) return false;
+
+    for (let i = 0; i < queue.length; i++) {
+      const page = queue[i];
+      if (
+        page.sourceId !== file.id ||
+        page.originalPageIndex !== i ||
+        page.rotation !== 0 ||
+        page.isExcluded ||
+        page.isBlank
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   // HELPER: Compile active pages in the queue into a single PDF
   const compileActiveQueue = async (): Promise<{ bytes: Uint8Array; name: string } | null> => {
     const activePages = queue.filter(p => !p.isExcluded);
     if (activePages.length === 0) {
       return null;
+    }
+
+    if (isQueueUnmodified()) {
+      return { bytes: new Uint8Array(sourceFiles[0].bytes), name: sourceFiles[0].name };
     }
 
     const docsToMerge: any[] = [];
@@ -627,7 +652,7 @@ export function WorkshopView() {
         
         triggerDownload(compressedBytes, filename);
         setLastCompressionResult({
-          originalSize: activeDoc.bytes.byteLength,
+          originalSize: activeDoc.bytes.length,
           compressedSize: compressedBytes.length
         });
 
