@@ -67,13 +67,16 @@ export function loadPdfJs(): Promise<any> {
  * Render a specific page of a PDF as a thumbnail (data URL) using PDF.js
  */
 export async function renderPageToDataUrl(
-  pdfBytes: ArrayBuffer,
+  pdfBytes: ArrayBuffer | Uint8Array,
   pageIndex: number,
   scale: number = 0.4
 ): Promise<string> {
   const pdfjs = await loadPdfJs();
-  // Clone the ArrayBuffer to prevent PDF.js Web Worker from detaching the original buffer in the main thread
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(pdfBytes.slice(0)) });
+  // Clone the buffer to prevent PDF.js Web Worker from detaching the original buffer in the main thread
+  const clonedBytes = pdfBytes instanceof Uint8Array
+    ? new Uint8Array(pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength))
+    : new Uint8Array(pdfBytes.slice(0));
+  const loadingTask = pdfjs.getDocument({ data: clonedBytes });
   const pdf = await loadingTask.promise;
   const page = await pdf.getPage(pageIndex + 1);
 
@@ -94,7 +97,7 @@ export async function renderPageToDataUrl(
 /**
  * Get the total number of pages in a PDF
  */
-export async function getPdfPageCount(pdfBytes: ArrayBuffer): Promise<number> {
+export async function getPdfPageCount(pdfBytes: ArrayBuffer | Uint8Array): Promise<number> {
   try {
     const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
     return pdfDoc.getPageCount();
@@ -102,8 +105,11 @@ export async function getPdfPageCount(pdfBytes: ArrayBuffer): Promise<number> {
     // If encrypted, fallback to loading via PDF.js which can tell us page count without decrypting
     try {
       const pdfjs = await loadPdfJs();
-      // Clone the ArrayBuffer to prevent PDF.js Web Worker from detaching the original buffer in the main thread
-      const loadingTask = pdfjs.getDocument({ data: new Uint8Array(pdfBytes.slice(0)) });
+      // Clone the buffer to prevent PDF.js Web Worker from detaching the original buffer in the main thread
+      const clonedBytes = pdfBytes instanceof Uint8Array
+        ? new Uint8Array(pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength))
+        : new Uint8Array(pdfBytes.slice(0));
+      const loadingTask = pdfjs.getDocument({ data: clonedBytes });
       const pdf = await loadingTask.promise;
       return pdf.numPages;
     } catch (e) {
@@ -187,7 +193,7 @@ export async function mergePdfs(
  * Split a single PDF into multiple documents
  */
 export async function splitPdf(
-  pdfBytes: ArrayBuffer,
+  pdfBytes: ArrayBuffer | Uint8Array,
   options: {
     type: 'ranges' | 'fixed' | 'all';
     rangeValue?: string; // e.g. "1-5, 8, 10-12"
@@ -284,7 +290,7 @@ export async function splitPdf(
  * Apply a watermarking text or image overlay
  */
 export async function watermarkPdf(
-  pdfBytes: ArrayBuffer,
+  pdfBytes: ArrayBuffer | Uint8Array,
   options: WatermarkOptions
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
@@ -444,7 +450,7 @@ export async function watermarkPdf(
  * Edit PDF metadata fields
  */
 export async function editPdfMetadata(
-  pdfBytes: ArrayBuffer,
+  pdfBytes: ArrayBuffer | Uint8Array,
   metadata: PDFMetadata
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
@@ -463,12 +469,12 @@ export async function editPdfMetadata(
  * Encrypt/Decrypt PDF with password protection using server-side Ghostscript engine
  */
 export async function encryptPdf(
-  pdfBytes: ArrayBuffer,
+  pdfBytes: ArrayBuffer | Uint8Array,
   options: PasswordOptions
 ): Promise<Uint8Array> {
   try {
     const formData = new FormData();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
     formData.append('file', blob, 'document.pdf');
     formData.append('action', options.action);
     formData.append('userPassword', options.userPassword || '');
@@ -497,7 +503,7 @@ export async function encryptPdf(
  * and compressing them into JPEGs. This runs entirely in the browser.
  */
 export async function compressPdf(
-  pdfBytes: ArrayBuffer,
+  pdfBytes: ArrayBuffer | Uint8Array,
   options: {
     preset: 'aggressive' | 'balanced' | 'max_quality';
     dpi?: number;
@@ -505,7 +511,11 @@ export async function compressPdf(
   }
 ): Promise<Uint8Array> {
   const pdfjs = await loadPdfJs();
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(pdfBytes.slice(0)) });
+  // Clone the buffer to prevent PDF.js Web Worker from detaching the original buffer in the main thread
+  const clonedBytes = pdfBytes instanceof Uint8Array
+    ? new Uint8Array(pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength))
+    : new Uint8Array(pdfBytes.slice(0));
+  const loadingTask = pdfjs.getDocument({ data: clonedBytes });
   const pdf = await loadingTask.promise;
   const numPages = pdf.numPages;
 

@@ -459,7 +459,7 @@ export function WorkshopView() {
   };
 
   // HELPER: Compile active pages in the queue into a single PDF
-  const compileActiveQueue = async (): Promise<{ bytes: ArrayBuffer; name: string } | null> => {
+  const compileActiveQueue = async (): Promise<{ bytes: Uint8Array; name: string } | null> => {
     const activePages = queue.filter(p => !p.isExcluded);
     if (activePages.length === 0) {
       return null;
@@ -512,7 +512,7 @@ export function WorkshopView() {
     const baseName = firstActivePage ? firstActivePage.sourceName.replace('.pdf', '') : 'document';
     const name = `${baseName}_compiled.pdf`;
 
-    return { bytes: compiledBytes.buffer as ArrayBuffer, name };
+    return { bytes: compiledBytes, name };
   };
 
   // 1. MERGE ENGINE
@@ -533,10 +533,9 @@ export function WorkshopView() {
         }
 
         const filename = `compiled_document_${Date.now().toString().slice(-4)}.pdf`;
-        triggerDownload(new Uint8Array(activeDoc.bytes), filename);
+        triggerDownload(activeDoc.bytes, filename);
 
-        const compiledUint8 = new Uint8Array(activeDoc.bytes);
-        addHistoryItem(filename, compiledUint8, 'Mashup');
+        addHistoryItem(filename, activeDoc.bytes, 'Mashup');
         showNotification('Successfully merged and downloaded your PDF document.', 'success');
       } catch (err: any) {
         console.error(err);
