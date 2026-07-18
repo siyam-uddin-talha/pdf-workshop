@@ -491,3 +491,87 @@ export async function encryptPdf(
     throw new Error(error.message || 'Crypto Lock operation failed');
   }
 }
+
+/**
+ * Compress a PDF entirely client-side by rasterizing pages at target resolution (DPI)
+ * and compressing them into JPEGs. This runs entirely in the browser.
+ */
+export async function compressPdf(
+  pdfBytes: ArrayBuffer,
+  options: {
+    preset: 'aggressive' | 'balanced' | 'max_quality';
+    dpi?: number;
+    jpegQuality?: number;
+  }
+): Promise<Uint8Array> {
+  const pdfjs = await loadPdfJs();
+  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(pdfBytes.slice(0)) });
+  const pdf = await loadingTask.promise;
+  const numPages = pdf.numPages;
+
+  // Map presets to DPI & JPEG Quality targets
+  let dpi = 150;
+  let quality = 0.75;
+
+  if (options.preset === 'aggressive') {
+    dpi = 72;
+    quality = 0.40;
+  } else if (options.preset === 'max_quality') {
+    dpi = 300;
+    quality = 0.85;
+  }
+
+  if (options.dpi && !isNaN(options.dpi) && options.dpi > 0) {
+    dpi = options.dpi;
+  }
+  if (options.jpegQuality && !isNaN(options.jpegQuality) && options.jpegQuality > 0) {
+    quality = options.jpegQuality / 100;
+  }
+
+  const pdfDoc = await PDFDocument.create();
+
+  // Scale ratio based on standard 72 DPI PDF user units
+  const scale = dpi / 72;
+
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Could not create 2D canvas context');
+    }
+
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    // Render page to canvas
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    // Convert canvas to compressed JPEG bytes synchronously
+    const jpegDataUrl = canvas.toDataURL('image/jpeg', quality);
+    const base64Data = jpegDataUrl.substring(jpegDataUrl.indexOf(',') + 1);
+    const binaryString = atob(base64Data);
+    const jpegBytes = new Uint8Array(binaryString.length);
+    for (let j = 0; j < binaryString.length; j++) {
+      jpegBytes[j] = binaryString.charCodeAt(j);
+    }
+
+    // Embed the JPEG into our new PDF
+    const embeddedImage = await pdfDoc.embedJpg(jpegBytes);
+    
+    // Create page matching the original PDF size (at 72 DPI units)
+    const origViewport = page.getViewport({ scale: 1.0 });
+    const newPage = pdfDoc.addPage([origViewport.width, origViewport.height]);
+    
+    newPage.drawImage(embeddedImage, {
+      x: 0,
+      y: 0,
+      width: origViewport.width,
+      height: origViewport.height,
+    });
+  }
+
+  return await pdfDoc.save();
+}

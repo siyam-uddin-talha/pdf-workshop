@@ -35,7 +35,8 @@ import {
   splitPdf, 
   watermarkPdf, 
   editPdfMetadata, 
-  encryptPdf 
+  encryptPdf,
+  compressPdf
 } from '@/lib/pdf-service';
 
 import { QueuePage, SourceFile, ProcessedHistoryItem } from '../types/pdf';
@@ -586,25 +587,11 @@ export function WorkshopView() {
     startProcessing(async () => {
       setProcessingStatus('Optimizing resources and compressing document...');
       try {
-        const formData = new FormData();
-        const blob = new Blob([activeFile.bytes as any], { type: 'application/pdf' });
-        formData.append('file', blob, activeFile.name);
-        formData.append('preset', compressPreset);
-        formData.append('dpi', String(customDpi));
-        formData.append('jpegQuality', String(jpegQuality));
-        formData.append('subsetFonts', String(subsetFonts));
-
-        const res = await fetch('/api/compress', {
-          method: 'POST',
-          body: formData,
+        const compressedBytes = await compressPdf(activeFile.bytes, {
+          preset: compressPreset,
+          dpi: customDpi,
+          jpegQuality: jpegQuality,
         });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || 'Server rejected compression request.');
-        }
-
-        const compressedBytes = new Uint8Array(await res.arrayBuffer());
         const filename = `shrunk_${activeFile.name}`;
         
         triggerDownload(compressedBytes, filename);
