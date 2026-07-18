@@ -548,8 +548,8 @@ export function WorkshopView() {
       return;
     }
 
+    setProcessingStatus('Merging documents and generating layout...');
     startProcessing(async () => {
-      setProcessingStatus('Merging documents and generating layout...');
       try {
         const activeDoc = await compileActiveQueue();
         if (!activeDoc) {
@@ -565,6 +565,8 @@ export function WorkshopView() {
       } catch (err: any) {
         console.error(err);
         showNotification(`Error: Merging documents failed: ${err.message || err}`, 'error');
+      } finally {
+        setProcessingStatus('');
       }
     });
   };
@@ -577,8 +579,8 @@ export function WorkshopView() {
       return;
     }
 
+    setProcessingStatus('Splitting pages and processing document...');
     startProcessing(async () => {
-      setProcessingStatus('Splitting pages and processing document...');
       try {
         const activeDoc = await compileActiveQueue();
         if (!activeDoc) {
@@ -622,6 +624,8 @@ export function WorkshopView() {
       } catch (err: any) {
         console.error(err);
         showNotification(`Error: Splitting document failed: ${err.message}`, 'error');
+      } finally {
+        setProcessingStatus('');
       }
     });
   };
@@ -634,8 +638,8 @@ export function WorkshopView() {
       return;
     }
 
+    setProcessingStatus('Optimizing resources and compressing document...');
     startProcessing(async () => {
-      setProcessingStatus('Optimizing resources and compressing document...');
       try {
         const activeDoc = await compileActiveQueue();
         if (!activeDoc) {
@@ -661,6 +665,8 @@ export function WorkshopView() {
       } catch (err: any) {
         console.error(err);
         showNotification(`Error: Compression failed: ${err.message}`, 'error');
+      } finally {
+        setProcessingStatus('');
       }
     });
   };
@@ -688,8 +694,8 @@ export function WorkshopView() {
       return;
     }
 
+    setProcessingStatus('Applying watermark to PDF pages...');
     startProcessing(async () => {
-      setProcessingStatus('Applying watermark to PDF pages...');
       try {
         const activeDoc = await compileActiveQueue();
         if (!activeDoc) {
@@ -716,6 +722,8 @@ export function WorkshopView() {
       } catch (err: any) {
         console.error(err);
         showNotification(`Error: Failed to apply watermark: ${err.message}`, 'error');
+      } finally {
+        setProcessingStatus('');
       }
     });
   };
@@ -733,8 +741,8 @@ export function WorkshopView() {
       return;
     }
 
+    setProcessingStatus('Applying encryption settings...');
     startProcessing(async () => {
-      setProcessingStatus('Applying encryption settings...');
       try {
         const activeDoc = await compileActiveQueue();
         if (!activeDoc) {
@@ -755,6 +763,8 @@ export function WorkshopView() {
       } catch (err: any) {
         console.error(err);
         showNotification(`Error: Protection settings failed: ${err.message}`, 'error');
+      } finally {
+        setProcessingStatus('');
       }
     });
   };
@@ -767,8 +777,8 @@ export function WorkshopView() {
       return;
     }
 
+    setProcessingStatus('Updating document metadata...');
     startProcessing(async () => {
-      setProcessingStatus('Updating document metadata...');
       try {
         const activeDoc = await compileActiveQueue();
         if (!activeDoc) {
@@ -792,6 +802,8 @@ export function WorkshopView() {
       } catch (err: any) {
         console.error(err);
         showNotification(`Error: Failed to save metadata: ${err.message}`, 'error');
+      } finally {
+        setProcessingStatus('');
       }
     });
   };
@@ -804,8 +816,8 @@ export function WorkshopView() {
       return;
     }
 
+    setProcessingStatus('Converting document pages to high-resolution images...');
     startProcessing(async () => {
-      setProcessingStatus('Converting document pages to high-resolution images...');
       try {
         const activeDoc = await compileActiveQueue();
         if (!activeDoc) {
@@ -837,6 +849,8 @@ export function WorkshopView() {
       } catch (err: any) {
         console.error(err);
         showNotification(`Error: Image export failed: ${err.message}`, 'error');
+      } finally {
+        setProcessingStatus('');
       }
     });
   };
