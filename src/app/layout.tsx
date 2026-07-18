@@ -91,6 +91,9 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/logo.png", type: "image/png" }],
   },
+  verification: {
+    google: "googlef57f464e597e6551",
+  },
   other: {
     "application-name": SITE.name,
   },
