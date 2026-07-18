@@ -458,6 +458,63 @@ export function WorkshopView() {
     URL.revokeObjectURL(url);
   };
 
+  // HELPER: Compile active pages in the queue into a single PDF
+  const compileActiveQueue = async (): Promise<{ bytes: ArrayBuffer; name: string } | null> => {
+    const activePages = queue.filter(p => !p.isExcluded);
+    if (activePages.length === 0) {
+      return null;
+    }
+
+    const docsToMerge: any[] = [];
+    for (const page of activePages) {
+      if (page.isBlank) {
+        const tempDoc = await PDFDocument.create();
+        tempDoc.addPage([595.276, 841.890]); // A4
+        const tempBytes = await tempDoc.save();
+        docsToMerge.push({
+          bytes: tempBytes,
+          pagesToInclude: [0],
+          rotations: { 0: page.rotation }
+        });
+      } else if (page.imageBytes) {
+        const imageBytes = page.imageBytes;
+        const type = page.imageType;
+        const tempDoc = await PDFDocument.create();
+        let embeddedImg;
+        if (type === 'image/png') {
+          embeddedImg = await tempDoc.embedPng(imageBytes);
+        } else {
+          embeddedImg = await tempDoc.embedJpg(imageBytes);
+        }
+        const { width, height } = embeddedImg.scale(1);
+        const p = tempDoc.addPage([width, height]);
+        p.drawImage(embeddedImg, { x: 0, y: 0, width, height });
+        const tempBytes = await tempDoc.save();
+        docsToMerge.push({
+          bytes: tempBytes,
+          pagesToInclude: [0],
+          rotations: { 0: page.rotation }
+        });
+      } else {
+        const sourceFile = sourceFiles.find(f => f.id === page.sourceId);
+        if (!sourceFile) continue;
+        
+        docsToMerge.push({
+          bytes: sourceFile.bytes,
+          pagesToInclude: [page.originalPageIndex],
+          rotations: { [page.originalPageIndex]: page.rotation }
+        });
+      }
+    }
+
+    const compiledBytes = await mergePdfs(docsToMerge);
+    const firstActivePage = activePages[0];
+    const baseName = firstActivePage ? firstActivePage.sourceName.replace('.pdf', '') : 'document';
+    const name = `${baseName}_compiled.pdf`;
+
+    return { bytes: compiledBytes.buffer as ArrayBuffer, name };
+  };
+
   // 1. MERGE ENGINE
   const executeMerge = () => {
     const activePages = queue.filter(p => !p.isExcluded);
@@ -469,54 +526,17 @@ export function WorkshopView() {
     startProcessing(async () => {
       setProcessingStatus('Merging documents and generating layout...');
       try {
-        const docsToMerge: any[] = [];
-        
-        for (const page of activePages) {
-          if (page.isBlank) {
-            const tempDoc = await PDFDocument.create();
-            tempDoc.addPage([595.276, 841.890]); // A4
-            const tempBytes = await tempDoc.save();
-            docsToMerge.push({
-              bytes: tempBytes,
-              pagesToInclude: [0],
-              rotations: { 0: page.rotation }
-            });
-          } else if (page.imageBytes) {
-            const imageBytes = page.imageBytes;
-            const type = page.imageType;
-            const tempDoc = await PDFDocument.create();
-            let embeddedImg;
-            if (type === 'image/png') {
-              embeddedImg = await tempDoc.embedPng(imageBytes);
-            } else {
-              embeddedImg = await tempDoc.embedJpg(imageBytes);
-            }
-            const { width, height } = embeddedImg.scale(1);
-            const p = tempDoc.addPage([width, height]);
-            p.drawImage(embeddedImg, { x: 0, y: 0, width, height });
-            const tempBytes = await tempDoc.save();
-            docsToMerge.push({
-              bytes: tempBytes,
-              pagesToInclude: [0],
-              rotations: { 0: page.rotation }
-            });
-          } else {
-            const sourceFile = sourceFiles.find(f => f.id === page.sourceId);
-            if (!sourceFile) continue;
-            
-            docsToMerge.push({
-              bytes: sourceFile.bytes,
-              pagesToInclude: [page.originalPageIndex],
-              rotations: { [page.originalPageIndex]: page.rotation }
-            });
-          }
+        const activeDoc = await compileActiveQueue();
+        if (!activeDoc) {
+          showNotification('No active pages in the queue to compile.', 'error');
+          return;
         }
 
-        const compiledBytes = await mergePdfs(docsToMerge);
         const filename = `compiled_document_${Date.now().toString().slice(-4)}.pdf`;
-        triggerDownload(compiledBytes, filename);
+        triggerDownload(new Uint8Array(activeDoc.bytes), filename);
 
-        addHistoryItem(filename, compiledBytes, 'Mashup');
+        const compiledUint8 = new Uint8Array(activeDoc.bytes);
+        addHistoryItem(filename, compiledUint8, 'Mashup');
         showNotification('Successfully merged and downloaded your PDF document.', 'success');
       } catch (err: any) {
         console.error(err);
@@ -527,16 +547,22 @@ export function WorkshopView() {
 
   // 2. SPLIT ENGINE
   const executeSplit = () => {
-    const activeFile = sourceFiles[0];
-    if (!activeFile) {
-      showNotification('Please upload a PDF document to split.', 'error');
+    const activePages = queue.filter(p => !p.isExcluded);
+    if (activePages.length === 0) {
+      showNotification('No active pages in the queue to split.', 'error');
       return;
     }
 
     startProcessing(async () => {
       setProcessingStatus('Splitting pages and processing document...');
       try {
-        const splitResults = await splitPdf(activeFile.bytes, {
+        const activeDoc = await compileActiveQueue();
+        if (!activeDoc) {
+          showNotification('No active pages in the queue to split.', 'error');
+          return;
+        }
+
+        const splitResults = await splitPdf(activeDoc.bytes, {
           type: splitType,
           rangeValue: splitRanges,
           fixedSize: splitFixedSize,
@@ -561,12 +587,12 @@ export function WorkshopView() {
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = `split_assets_${activeFile.name.replace('.pdf', '')}.zip`;
+          link.download = `split_assets_${activeDoc.name.replace('.pdf', '')}.zip`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
           
-          addHistoryItem(`split_${activeFile.name.replace('.pdf', '')}.zip`, zipContent, 'Split (ZIP)', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="170" viewBox="0 0 120 170"><rect width="100%" height="100%" fill="%23f4f7f5" stroke="%230d9488" stroke-dasharray="2"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="12" fill="%230d9488">ZIP Assets</text></svg>');
+          addHistoryItem(`split_${activeDoc.name.replace('.pdf', '')}.zip`, zipContent, 'Split (ZIP)', 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="170" viewBox="0 0 120 170"><rect width="100%" height="100%" fill="%23f4f7f5" stroke="%230d9488" stroke-dasharray="2"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="12" fill="%230d9488">ZIP Assets</text></svg>');
         }
         showNotification(`Success! Document split into ${splitResults.length} files.`, 'success');
       } catch (err: any) {
@@ -578,25 +604,31 @@ export function WorkshopView() {
 
   // 3. COMPRESS ENGINE (Ghostscript Server-Side)
   const executeCompress = () => {
-    const activeFile = sourceFiles[0];
-    if (!activeFile) {
-      showNotification('Please upload a document to compress.', 'error');
+    const activePages = queue.filter(p => !p.isExcluded);
+    if (activePages.length === 0) {
+      showNotification('No active pages in the queue to compress.', 'error');
       return;
     }
 
     startProcessing(async () => {
       setProcessingStatus('Optimizing resources and compressing document...');
       try {
-        const compressedBytes = await compressPdf(activeFile.bytes, {
+        const activeDoc = await compileActiveQueue();
+        if (!activeDoc) {
+          showNotification('No active pages in the queue to compress.', 'error');
+          return;
+        }
+
+        const compressedBytes = await compressPdf(activeDoc.bytes, {
           preset: compressPreset,
           dpi: customDpi,
           jpegQuality: jpegQuality,
         });
-        const filename = `shrunk_${activeFile.name}`;
+        const filename = `shrunk_${activeDoc.name}`;
         
         triggerDownload(compressedBytes, filename);
         setLastCompressionResult({
-          originalSize: activeFile.size,
+          originalSize: activeDoc.bytes.byteLength,
           compressedSize: compressedBytes.length
         });
 
@@ -621,9 +653,9 @@ export function WorkshopView() {
   };
 
   const executeWatermark = () => {
-    const activeFile = sourceFiles[0];
-    if (!activeFile) {
-      showNotification('Put in a file first so we can stamp it.', 'error');
+    const activePages = queue.filter(p => !p.isExcluded);
+    if (activePages.length === 0) {
+      showNotification('No active pages in the queue to watermark.', 'error');
       return;
     }
 
@@ -635,7 +667,13 @@ export function WorkshopView() {
     startProcessing(async () => {
       setProcessingStatus('Applying watermark to PDF pages...');
       try {
-        const watermarkedBytes = await watermarkPdf(activeFile.bytes, {
+        const activeDoc = await compileActiveQueue();
+        if (!activeDoc) {
+          showNotification('No active pages in the queue to watermark.', 'error');
+          return;
+        }
+
+        const watermarkedBytes = await watermarkPdf(activeDoc.bytes, {
           type: watermarkType,
           text: watermarkText,
           imageBytes: watermarkImageBytes || undefined,
@@ -647,7 +685,7 @@ export function WorkshopView() {
           color: watermarkColor
         });
 
-        const filename = `watermarked_${activeFile.name}`;
+        const filename = `watermarked_${activeDoc.name}`;
         triggerDownload(watermarkedBytes, filename);
         addHistoryItem(filename, watermarkedBytes, 'Stamped');
         showNotification('Success! Watermark applied to PDF pages.', 'success');
@@ -660,9 +698,9 @@ export function WorkshopView() {
 
   // 5. SECURITY PASSWORD DESK
   const executePasswordLock = () => {
-    const activeFile = sourceFiles[0];
-    if (!activeFile) {
-      showNotification('Please upload a PDF to configure passwords.', 'error');
+    const activePages = queue.filter(p => !p.isExcluded);
+    if (activePages.length === 0) {
+      showNotification('No active pages in the queue to configure passwords.', 'error');
       return;
     }
 
@@ -674,40 +712,47 @@ export function WorkshopView() {
     startProcessing(async () => {
       setProcessingStatus('Applying encryption settings...');
       try {
-        const encryptedBytes = await encryptPdf(activeFile.bytes, {
+        const activeDoc = await compileActiveQueue();
+        if (!activeDoc) {
+          showNotification('No active pages in the queue to configure passwords.', 'error');
+          return;
+        }
+
+        const encryptedBytes = await encryptPdf(activeDoc.bytes, {
           action: passwordAction,
           userPassword,
           ownerPassword: ownerPassword || userPassword
         });
 
-        const filename = passwordAction === 'add' ? `locked_${activeFile.name}` : `unlocked_${activeFile.name}`;
+        const filename = `${passwordAction === 'add' ? 'locked_' : 'unlocked_'}${activeDoc.name}`;
         triggerDownload(encryptedBytes, filename);
         addHistoryItem(filename, encryptedBytes, passwordAction === 'add' ? 'Locked' : 'Unlocked');
-        showNotification(
-          passwordAction === 'add' 
-            ? 'PDF document successfully encrypted.' 
-            : 'PDF document decryption processed.', 
-          'success'
-        );
+        showNotification(`Success! PDF protection settings applied.`, 'success');
       } catch (err: any) {
         console.error(err);
-        showNotification(`Error: Encryption failed: ${err.message}`, 'error');
+        showNotification(`Error: Protection settings failed: ${err.message}`, 'error');
       }
     });
   };
 
   // 6. METADATA EDITOR
   const executeMetadataSave = () => {
-    const activeFile = sourceFiles[0];
-    if (!activeFile) {
-      showNotification('Please upload a PDF to edit its metadata.', 'error');
+    const activePages = queue.filter(p => !p.isExcluded);
+    if (activePages.length === 0) {
+      showNotification('No active pages in the queue to edit metadata.', 'error');
       return;
     }
 
     startProcessing(async () => {
       setProcessingStatus('Updating document metadata...');
       try {
-        const editedBytes = await editPdfMetadata(activeFile.bytes, {
+        const activeDoc = await compileActiveQueue();
+        if (!activeDoc) {
+          showNotification('No active pages in the queue to edit metadata.', 'error');
+          return;
+        }
+
+        const editedBytes = await editPdfMetadata(activeDoc.bytes, {
           title: metadataTitle,
           author: metadataAuthor,
           subject: metadataSubject,
@@ -716,7 +761,7 @@ export function WorkshopView() {
           producer: metadataProducer
         });
 
-        const filename = `tagged_${activeFile.name}`;
+        const filename = `tagged_${activeDoc.name}`;
         triggerDownload(editedBytes, filename);
         addHistoryItem(filename, editedBytes, 'Tagged');
         showNotification('Success! Metadata updated successfully.', 'success');
@@ -729,20 +774,26 @@ export function WorkshopView() {
 
   // 7. EXPORT PDF AS IMAGE / BATCH MODE
   const executeExportToImages = () => {
-    const activeFile = sourceFiles[0];
-    if (!activeFile) {
-      showNotification('Please upload a PDF to export as images.', 'error');
+    const activePages = queue.filter(p => !p.isExcluded);
+    if (activePages.length === 0) {
+      showNotification('No active pages in the queue to export as images.', 'error');
       return;
     }
 
     startProcessing(async () => {
       setProcessingStatus('Converting document pages to high-resolution images...');
       try {
-        const total = activeFile.totalPages;
+        const activeDoc = await compileActiveQueue();
+        if (!activeDoc) {
+          showNotification('No active pages in the queue to export as images.', 'error');
+          return;
+        }
+
+        const total = await getPdfPageCount(activeDoc.bytes);
         const zip = new JSZip();
 
         for (let i = 0; i < total; i++) {
-          const pageDataUrl = await renderPageToDataUrl(activeFile.bytes, i, 1.5);
+          const pageDataUrl = await renderPageToDataUrl(activeDoc.bytes, i, 1.5);
           const base64Data = pageDataUrl.replace(/^data:image\/(png|jpg);base64,/, '');
           zip.file(`page_${i + 1}.png`, base64Data, { base64: true });
         }
@@ -752,12 +803,12 @@ export function WorkshopView() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `extracted_pages_${activeFile.name.replace('.pdf', '')}.zip`;
+        link.download = `extracted_pages_${activeDoc.name.replace('.pdf', '')}.zip`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
-        addHistoryItem(`extracted_pages_${activeFile.name.replace('.pdf', '')}.zip`, zipContent, 'PDF to PNG');
+        addHistoryItem(`extracted_pages_${activeDoc.name.replace('.pdf', '')}.zip`, zipContent, 'PDF to PNG');
         showNotification('Success! All pages exported to a ZIP archive.', 'success');
       } catch (err: any) {
         console.error(err);
