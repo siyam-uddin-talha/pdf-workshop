@@ -1,7 +1,8 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Outfit, JetBrains_Mono } from 'next/font/google';
 import '../global.css';
 import { OWNER, SITE, absoluteUrl, ogImageUrl } from '@/lib/seo';
+import { PWAProvider } from '@/components/pwa/pwa-provider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -32,6 +33,13 @@ const ogImages = [
   },
 ];
 
+export const viewport: Viewport = {
+  themeColor: '#163327',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
@@ -45,6 +53,15 @@ export const metadata: Metadata = {
   creator: OWNER.name,
   publisher: OWNER.name,
   category: "utility",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: SITE.name,
+  },
+  formatDetection: {
+    telephone: false,
+  },
   alternates: {
     canonical: "/",
     languages: {
@@ -87,15 +104,18 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.ico", type: "image/x-icon" },
-      { url: "/logo.png", type: "image/png" }
+      { url: "/icons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" }
     ],
-    apple: [{ url: "/logo.png", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   verification: {
     google: "googlef57f464e597e6551",
   },
   other: {
     "application-name": SITE.name,
+    "mobile-web-app-capable": "yes",
   },
 };
 
@@ -110,8 +130,9 @@ export default function RootLayout({
       className={`${inter.variable} ${outfit.variable} ${jetbrainsMono.variable}`}
     >
       <body suppressHydrationWarning className="bg-[#f4f7f5] text-[#163327] antialiased">
-        {children}
+        <PWAProvider>{children}</PWAProvider>
       </body>
     </html>
   );
 }
+
