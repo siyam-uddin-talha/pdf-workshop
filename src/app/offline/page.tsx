@@ -1,12 +1,10 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { WifiOff, ShieldCheck, Cpu, ArrowLeft, RefreshCw } from 'lucide-react';
 import { SITE } from '@/lib/seo';
 
-export const metadata = {
-  title: `Offline Mode — ${SITE.name}`,
-  description: 'PDF Workshop works fully offline without an internet connection.',
-};
 
 export default function OfflinePage() {
   return (
