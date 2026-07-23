@@ -1,25 +1,26 @@
-import type { Metadata, Viewport } from 'next';
-import { Inter, Outfit, JetBrains_Mono } from 'next/font/google';
-import '../global.css';
-import { OWNER, SITE, absoluteUrl, ogImageUrl } from '@/lib/seo';
-import { PWAProvider } from '@/components/pwa/pwa-provider';
+import type { Metadata, Viewport } from "next";
+import { Inter, Outfit, JetBrains_Mono } from "next/font/google";
+import "../global.css";
+import { OWNER, SITE, absoluteUrl, ogImageUrl } from "@/lib/seo";
+import { PWAProvider } from "@/components/pwa/pwa-provider";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  display: 'swap',
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
 });
 
 const outfit = Outfit({
-  subsets: ['latin'],
-  variable: '--font-outfit',
-  display: 'swap',
+  subsets: ["latin"],
+  variable: "--font-outfit",
+  display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-  display: 'swap',
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
 });
 
 const ogImages = [
@@ -34,8 +35,8 @@ const ogImages = [
 ];
 
 export const viewport: Viewport = {
-  themeColor: '#163327',
-  width: 'device-width',
+  themeColor: "#163327",
+  width: "device-width",
   initialScale: 1,
   maximumScale: 5,
 };
@@ -106,9 +107,11 @@ export const metadata: Metadata = {
       { url: "/favicon.ico", type: "image/x-icon" },
       { url: "/icons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
       { url: "/icons/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" }
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
   verification: {
     google: "googlef57f464e597e6551",
@@ -129,10 +132,13 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${outfit.variable} ${jetbrainsMono.variable}`}
     >
-      <body suppressHydrationWarning className="bg-[#f4f7f5] text-[#163327] antialiased">
+      <body
+        suppressHydrationWarning
+        className="bg-[#f4f7f5] text-[#163327] antialiased"
+      >
         <PWAProvider>{children}</PWAProvider>
+        <Analytics />
       </body>
     </html>
   );
 }
-
