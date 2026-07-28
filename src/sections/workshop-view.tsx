@@ -48,6 +48,9 @@ import { PageGrid } from '../components/page-grid';
 import { TweakControls } from '../components/tweak-controls';
 import { HistoryLog } from '../components/history-log';
 import { FullscreenViewer } from '../components/fullscreen-viewer';
+import { GoogleAd } from '../components/google-ad';
+
+import { PRIMARY_TOOL_LINKS, TabType } from '@/lib/tool-pages';
 
 let globalCounter = 0;
 function getUniqueId(prefix: string = 'id'): string {
@@ -56,12 +59,18 @@ function getUniqueId(prefix: string = 'id'): string {
   return `${prefix}_${timestamp}_${globalCounter}`;
 }
 
-export function WorkshopView() {
+interface WorkshopViewProps {
+  initialTab?: TabType;
+  pageTitle?: string;
+  pageDescription?: string;
+}
+
+export function WorkshopView({ initialTab = 'merge', pageTitle, pageDescription }: WorkshopViewProps = {}) {
   // --- STATE ---
   const [sourceFiles, setSourceFiles] = useState<SourceFile[]>([]);
   const [queue, setQueue] = useState<QueuePage[]>([]);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'merge' | 'split' | 'compress' | 'watermark' | 'password' | 'metadata' | 'export'>('merge');
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [isProcessing, startProcessing] = useTransition();
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [pdfJsLoaded, setPdfJsLoaded] = useState(false);
@@ -960,165 +969,196 @@ export function WorkshopView() {
         </div>
       </header>
 
-      {/* MAIN CONTAINER */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col lg:flex-row gap-8">
-        
-        {/* LEFT WORKSPACE: FILE DROP & VISUAL PAGE ORGANIZER */}
-        <section className="flex-1 flex flex-col space-y-6 min-w-0">
-          
-          {/* DRAG AND DROP ZONE */}
-          <FileDropzone 
-            isDraggingOver={isDraggingOver}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            onFileChange={handleFileChange}
-          />
-
-          {/* ACTIVE QUEUE SHEET EDITOR */}
-          {queue.length > 0 && (
-            <PageGrid 
-              queue={queue}
-              selectedPageId={selectedPageId}
-              onSelectPage={setSelectedPageId}
-              onRotatePage={rotatePage}
-              onToggleExcludePage={togglePageExclude}
-              onRemovePage={removePage}
-              onInsertBlankPage={insertBlankPage}
-              onClearWorkspace={clearWorkspace}
-              onUndo={undo}
-              onRedo={redo}
-              historyPastLength={historyPast.length}
-              historyFutureLength={historyFuture.length}
-              onOpenFullscreen={(index) => {
-                setFullscreenIndex(index);
-                setIsFullscreenOpen(true);
-              }}
-              onReorderQueue={handleReorderQueue}
-              onDragEnd={handleDragEnd}
+      {/* OUTER LAYOUT WRAPPER WITH LEFT & RIGHT SIDE AD GUTTERS */}
+      <div className="flex-1 w-full max-w-[1720px] mx-auto flex items-start justify-center gap-4 px-2 sm:px-4">
+        {/* LEFT SIDEBAR AD (DESKTOP) */}
+        <aside className="hidden xl:block w-[160px] shrink-0 sticky top-24 pt-8">
+          <div className="bg-white border border-[#d1ded7]/70 rounded-2xl p-2 shadow-[0_4px_24px_rgba(22,51,39,0.02)] text-center min-h-[600px] flex flex-col justify-start">
+            <span className="text-[9px] font-mono text-[#4b6155]/60 uppercase tracking-widest block mb-2">
+              Advertisement
+            </span>
+            <GoogleAd
+              slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_LEFT || process.env.NEXT_PUBLIC_ADSENSE_SLOT_ID || '7154365588'}
+              style={{ display: 'block', width: '100%', minHeight: '600px' }}
             />
-          )}
+          </div>
+        </aside>
 
-          {/* ACTIVE QUEUE EMPTY STATE SUMMARY */}
-          {queue.length === 0 && (
-            <div className="bg-white border border-[#d1ded7]/70 rounded-xl p-8 shadow-[0_4px_24px_rgba(22,51,39,0.02)]">
-              <div className="flex items-center space-x-2">
-                <span className="bg-teal-50 text-teal-800 border border-teal-100 text-xs px-2.5 py-0.5 rounded-full font-semibold">
-                  Privacy Guaranteed
-                </span>
-                <span className="text-[11px] text-[#4b6155] font-mono">Client-side Processing</span>
+        {/* MAIN WORKSPACE CONTAINER */}
+        <main className="flex-1 max-w-7xl w-full py-8 flex flex-col lg:flex-row gap-8 min-w-0">
+          
+          {/* LEFT WORKSPACE: FILE DROP & VISUAL PAGE ORGANIZER */}
+          <section className="flex-1 flex flex-col space-y-6 min-w-0">
+            
+            {/* DRAG AND DROP ZONE */}
+            <FileDropzone 
+              isDraggingOver={isDraggingOver}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onFileChange={handleFileChange}
+            />
+
+            {/* ACTIVE QUEUE SHEET EDITOR */}
+            {queue.length > 0 && (
+              <PageGrid 
+                queue={queue}
+                selectedPageId={selectedPageId}
+                onSelectPage={setSelectedPageId}
+                onRotatePage={rotatePage}
+                onToggleExcludePage={togglePageExclude}
+                onRemovePage={removePage}
+                onInsertBlankPage={insertBlankPage}
+                onClearWorkspace={clearWorkspace}
+                onUndo={undo}
+                onRedo={redo}
+                historyPastLength={historyPast.length}
+                historyFutureLength={historyFuture.length}
+                onOpenFullscreen={(index) => {
+                  setFullscreenIndex(index);
+                  setIsFullscreenOpen(true);
+                }}
+                onReorderQueue={handleReorderQueue}
+                onDragEnd={handleDragEnd}
+              />
+            )}
+
+            {/* ACTIVE QUEUE EMPTY STATE SUMMARY */}
+            {queue.length === 0 && (
+              <div className="bg-white border border-[#d1ded7]/70 rounded-xl p-8 shadow-[0_4px_24px_rgba(22,51,39,0.02)]">
+                <div className="flex items-center space-x-2">
+                  <span className="bg-teal-50 text-teal-800 border border-teal-100 text-xs px-2.5 py-0.5 rounded-full font-semibold">
+                    Privacy Guaranteed
+                  </span>
+                  <span className="text-[11px] text-[#4b6155] font-mono">Client-side Processing</span>
+                </div>
+                <h3 className="text-[#163327] font-outfit font-semibold tracking-tight text-lg mt-3">
+                  {pageTitle || "PDF Workshop Workspace"}
+                </h3>
+                <p className="text-[#4b6155] text-sm mt-1 leading-relaxed">
+                  {pageDescription || "Merge multiple documents, rearrange or remove pages, compress files for web optimization, and secure PDFs with industry-standard passwords. Upload your files above to begin."}
+                </p>
               </div>
-              <h3 className="text-[#163327] font-outfit font-semibold tracking-tight text-lg mt-3">PDF Workshop Workspace</h3>
-              <p className="text-[#4b6155] text-sm mt-1 leading-relaxed">
-                Merge multiple documents, rearrange or remove pages, compress files for web optimization, and secure PDFs with industry-standard passwords. Upload your files above to begin.
+            )}
+
+            {/* HISTORIC SESSION LOGS list */}
+            <HistoryLog 
+              history={history}
+              onDownloadHistoryItem={downloadHistoryItem}
+              onClearHistory={clearHistory}
+            />
+
+          </section>
+
+          {/* RIGHT CONTROL PANEL - SETTINGS & ACTIONS */}
+          <section className="w-full lg:w-[420px] shrink-0 flex flex-col space-y-6">
+            
+            {/* PROCESS BLOCKING LOADING SPINNER */}
+            {isProcessing && (
+              <div className="bg-[#163327] text-white rounded-2xl p-5 shadow-[0_12px_24px_rgba(22,51,39,0.15)] animate-pulse flex items-center space-x-4">
+                <RefreshCw className="w-6 h-6 animate-spin text-teal-400 shrink-0" />
+                <div>
+                  <h4 className="font-outfit font-semibold text-sm">Processing Document...</h4>
+                  <p className="text-xs text-teal-200/90 mt-0.5">{processingStatus || 'Preparing files...'}</p>
+                </div>
+              </div>
+            )}
+
+            {/* ACTIVE TOOL CONTROL BENTO CARD */}
+            <TweakControls 
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              isProcessing={isProcessing}
+              sourceFiles={sourceFiles}
+              activeCount={queue.length - queue.filter(p => p.isExcluded).length}
+              excludedCount={queue.filter(p => p.isExcluded).length}
+              executeMerge={executeMerge}
+              
+              splitType={splitType}
+              setSplitType={setSplitType}
+              splitRanges={splitRanges}
+              setSplitRanges={setSplitRanges}
+              splitFixedSize={splitFixedSize}
+              setSplitFixedSize={setSplitFixedSize}
+              executeSplit={executeSplit}
+              
+              compressPreset={compressPreset}
+              setCompressPreset={setCompressPreset}
+              customDpi={customDpi}
+              setCustomDpi={setCustomDpi}
+              jpegQuality={jpegQuality}
+              setJpegQuality={setJpegQuality}
+              subsetFonts={subsetFonts}
+              setSubsetFonts={setSubsetFonts}
+              lastCompressionResult={lastCompressionResult}
+              executeCompress={executeCompress}
+              
+              watermarkType={watermarkType}
+              setWatermarkType={setWatermarkType}
+              watermarkText={watermarkText}
+              setWatermarkText={setWatermarkText}
+              watermarkImage={watermarkImage}
+              handleWatermarkImageUpload={handleWatermarkImageUpload}
+              watermarkPosition={watermarkPosition}
+              setWatermarkPosition={setWatermarkPosition}
+              watermarkOpacity={watermarkOpacity}
+              setWatermarkOpacity={setWatermarkOpacity}
+              watermarkRotation={watermarkRotation}
+              setWatermarkRotation={setWatermarkRotation}
+              watermarkScale={watermarkScale}
+              setWatermarkScale={setWatermarkScale}
+              watermarkColor={watermarkColor}
+              setWatermarkColor={setWatermarkColor}
+              executeWatermark={executeWatermark}
+              
+              passwordAction={passwordAction}
+              setPasswordAction={setPasswordAction}
+              userPassword={userPassword}
+              setUserPassword={setUserPassword}
+              ownerPassword={ownerPassword}
+              setOwnerPassword={setOwnerPassword}
+              executePasswordLock={executePasswordLock}
+              
+              metadataTitle={metadataTitle}
+              setMetadataTitle={setMetadataTitle}
+              metadataAuthor={metadataAuthor}
+              setMetadataAuthor={setMetadataAuthor}
+              metadataSubject={metadataSubject}
+              setMetadataSubject={setMetadataSubject}
+              metadataKeywords={metadataKeywords}
+              setMetadataKeywords={setMetadataKeywords}
+              executeMetadataSave={executeMetadataSave}
+              
+              executeExportToImages={executeExportToImages}
+            />
+
+            {/* SAGE BOTANIST INFO BOX */}
+            <div className="bg-white border border-[#d1ded7]/70 rounded-xl p-5 text-xs space-y-3">
+              <span className="bg-teal-50 text-teal-800 border border-teal-100 font-semibold text-xs px-2.5 py-0.5 rounded-full inline-block">
+                Privacy & Security
+              </span>
+              <p className="text-[#4b6155] leading-relaxed">
+                This application operates entirely in your browser. Your files are processed locally on your device and are never uploaded to any external server. Zero data collection, 100% private.
               </p>
             </div>
-          )}
 
-          {/* HISTORIC SESSION LOGS list */}
-          <HistoryLog 
-            history={history}
-            onDownloadHistoryItem={downloadHistoryItem}
-            onClearHistory={clearHistory}
-          />
+          </section>
 
-        </section>
+        </main>
 
-        {/* RIGHT CONTROL PANEL - SETTINGS & ACTIONS */}
-        <section className="w-full lg:w-[420px] shrink-0 flex flex-col space-y-6">
-          
-          {/* PROCESS BLOCKING LOADING SPINNER */}
-          {isProcessing && (
-            <div className="bg-[#163327] text-white rounded-2xl p-5 shadow-[0_12px_24px_rgba(22,51,39,0.15)] animate-pulse flex items-center space-x-4">
-              <RefreshCw className="w-6 h-6 animate-spin text-teal-400 shrink-0" />
-              <div>
-                <h4 className="font-outfit font-semibold text-sm">Processing Document...</h4>
-                <p className="text-xs text-teal-200/90 mt-0.5">{processingStatus || 'Preparing files...'}</p>
-              </div>
-            </div>
-          )}
-
-          {/* ACTIVE TOOL CONTROL BENTO CARD */}
-          <TweakControls 
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            isProcessing={isProcessing}
-            sourceFiles={sourceFiles}
-            activeCount={queue.length - queue.filter(p => p.isExcluded).length}
-            excludedCount={queue.filter(p => p.isExcluded).length}
-            executeMerge={executeMerge}
-            
-            splitType={splitType}
-            setSplitType={setSplitType}
-            splitRanges={splitRanges}
-            setSplitRanges={setSplitRanges}
-            splitFixedSize={splitFixedSize}
-            setSplitFixedSize={setSplitFixedSize}
-            executeSplit={executeSplit}
-            
-            compressPreset={compressPreset}
-            setCompressPreset={setCompressPreset}
-            customDpi={customDpi}
-            setCustomDpi={setCustomDpi}
-            jpegQuality={jpegQuality}
-            setJpegQuality={setJpegQuality}
-            subsetFonts={subsetFonts}
-            setSubsetFonts={setSubsetFonts}
-            lastCompressionResult={lastCompressionResult}
-            executeCompress={executeCompress}
-            
-            watermarkType={watermarkType}
-            setWatermarkType={setWatermarkType}
-            watermarkText={watermarkText}
-            setWatermarkText={setWatermarkText}
-            watermarkImage={watermarkImage}
-            handleWatermarkImageUpload={handleWatermarkImageUpload}
-            watermarkPosition={watermarkPosition}
-            setWatermarkPosition={setWatermarkPosition}
-            watermarkOpacity={watermarkOpacity}
-            setWatermarkOpacity={setWatermarkOpacity}
-            watermarkRotation={watermarkRotation}
-            setWatermarkRotation={setWatermarkRotation}
-            watermarkScale={watermarkScale}
-            setWatermarkScale={setWatermarkScale}
-            watermarkColor={watermarkColor}
-            setWatermarkColor={setWatermarkColor}
-            executeWatermark={executeWatermark}
-            
-            passwordAction={passwordAction}
-            setPasswordAction={setPasswordAction}
-            userPassword={userPassword}
-            setUserPassword={setUserPassword}
-            ownerPassword={ownerPassword}
-            setOwnerPassword={setOwnerPassword}
-            executePasswordLock={executePasswordLock}
-            
-            metadataTitle={metadataTitle}
-            setMetadataTitle={setMetadataTitle}
-            metadataAuthor={metadataAuthor}
-            setMetadataAuthor={setMetadataAuthor}
-            metadataSubject={metadataSubject}
-            setMetadataSubject={setMetadataSubject}
-            metadataKeywords={metadataKeywords}
-            setMetadataKeywords={setMetadataKeywords}
-            executeMetadataSave={executeMetadataSave}
-            
-            executeExportToImages={executeExportToImages}
-          />
-
-          {/* SAGE BOTANIST INFO BOX */}
-          <div className="bg-white border border-[#d1ded7]/70 rounded-xl p-5 text-xs space-y-3">
-            <span className="bg-teal-50 text-teal-800 border border-teal-100 font-semibold text-xs px-2.5 py-0.5 rounded-full inline-block">
-              Privacy & Security
+        {/* RIGHT SIDEBAR AD (DESKTOP) */}
+        <aside className="hidden xl:block w-[160px] shrink-0 sticky top-24 pt-8">
+          <div className="bg-white border border-[#d1ded7]/70 rounded-2xl p-2 shadow-[0_4px_24px_rgba(22,51,39,0.02)] text-center min-h-[600px] flex flex-col justify-start">
+            <span className="text-[9px] font-mono text-[#4b6155]/60 uppercase tracking-widest block mb-2">
+              Advertisement
             </span>
-            <p className="text-[#4b6155] leading-relaxed">
-              This application operates entirely in your browser. Your files are processed locally on your device and are never uploaded to any external server. Zero data collection, 100% private.
-            </p>
+            <GoogleAd
+              slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_RIGHT || process.env.NEXT_PUBLIC_ADSENSE_SLOT_ID || '7154365588'}
+              style={{ display: 'block', width: '100%', minHeight: '600px' }}
+            />
           </div>
-
-        </section>
-
-      </main>
+        </aside>
+      </div>
 
       {/* FULLSCREEN PDF PAGE VIEWER MODAL */}
       <FullscreenViewer 
@@ -1130,9 +1170,42 @@ export function WorkshopView() {
         sourceFiles={sourceFiles}
       />
 
+      {/* MOBILE BOTTOM AD BANNER (< xl screens) */}
+      <div className="block xl:hidden max-w-7xl w-full mx-auto px-4 pb-4 mt-6">
+        <div className="bg-white border border-[#d1ded7]/70 rounded-xl p-2 shadow-sm text-center">
+          <span className="text-[9px] font-mono text-[#4b6155]/60 uppercase tracking-widest block mb-1">
+            Advertisement
+          </span>
+          <GoogleAd
+            slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_MOBILE || process.env.NEXT_PUBLIC_ADSENSE_SLOT_ID || '7154365588'}
+            format="auto"
+            responsive={true}
+            style={{ display: 'block', minHeight: '90px' }}
+          />
+        </div>
+      </div>
+
       {/* FOOTER SECTION */}
-      <footer className="bg-white border-t border-[#d1ded7]/80 py-8 mt-12 text-center text-xs text-[#4b6155]">
-        <div className="max-w-3xl mx-auto px-4 space-y-4">
+      <footer className="bg-white border-t border-[#d1ded7]/80 py-10 mt-12 text-xs text-[#4b6155]">
+        <div className="max-w-5xl mx-auto px-4 space-y-6 text-center">
+          {/* POPULAR TOOLS LINK GRID */}
+          <div className="border-b border-[#d1ded7]/60 pb-6">
+            <h4 className="font-outfit font-semibold text-[#163327] text-xs uppercase tracking-wider mb-3">
+              Popular PDF Tools & Services
+            </h4>
+            <div className="flex flex-wrap items-center justify-center gap-2 max-w-4xl mx-auto">
+              {PRIMARY_TOOL_LINKS.map((tool) => (
+                <Link
+                  key={tool.slug}
+                  href={`/${tool.slug}`}
+                  className="bg-[#f4f7f5] hover:bg-teal-50 text-[#163327] hover:text-teal-800 border border-[#d1ded7]/80 hover:border-teal-200 text-[11px] font-medium px-3 py-1.5 rounded-lg transition-all"
+                >
+                  {tool.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           <p className="font-sans text-[#4b6155]/90">
             PDF Workshop — Browser-powered local document adjustments generated instantly on-demand.
           </p>

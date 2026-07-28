@@ -8,6 +8,9 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
+const PWA_DISMISS_KEY = 'pwa_install_dismissed_until';
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
 export function PWAProvider({ children }: { children?: React.ReactNode }) {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
@@ -16,7 +19,27 @@ export function PWAProvider({ children }: { children?: React.ReactNode }) {
   const [toastMessage, setToastMessage] = useState<string>('');
   const [dismissedInstall, setDismissedInstall] = useState<boolean>(false);
 
+  const dismissPromptFor24Hours = () => {
+    try {
+      const until = Date.now() + TWENTY_FOUR_HOURS_MS;
+      localStorage.setItem(PWA_DISMISS_KEY, until.toString());
+    } catch (err) {
+      console.warn('[PWA] Unable to save dismissal to localStorage:', err);
+    }
+    setDismissedInstall(true);
+  };
+
   useEffect(() => {
+    // 0. Check if prompt was dismissed within the last 24 hours
+    try {
+      const dismissedUntil = localStorage.getItem(PWA_DISMISS_KEY);
+      if (dismissedUntil && Date.now() < Number(dismissedUntil)) {
+        setDismissedInstall(true);
+      }
+    } catch (err) {
+      console.warn('[PWA] Unable to read dismissal from localStorage:', err);
+    }
+
     // 1. Check if running in standalone mode (already installed)
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -55,6 +78,7 @@ export function PWAProvider({ children }: { children?: React.ReactNode }) {
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setInstallPrompt(null);
+      dismissPromptFor24Hours();
       setToastMessage('PDF Workshop installed successfully!');
       setShowToast(true);
       setTimeout(() => setShowToast(false), 4000);
@@ -115,6 +139,7 @@ export function PWAProvider({ children }: { children?: React.ReactNode }) {
     } catch (err) {
       console.error('[PWA] Install prompt error:', err);
     } finally {
+      dismissPromptFor24Hours();
       setInstallPrompt(null);
     }
   };
@@ -170,7 +195,7 @@ export function PWAProvider({ children }: { children?: React.ReactNode }) {
                 </div>
               </div>
               <button
-                onClick={() => setDismissedInstall(true)}
+                onClick={dismissPromptFor24Hours}
                 className="text-emerald-300/60 hover:text-white p-1 rounded-lg transition-colors"
                 aria-label="Dismiss install prompt"
               >
@@ -187,7 +212,7 @@ export function PWAProvider({ children }: { children?: React.ReactNode }) {
                 Install App
               </button>
               <button
-                onClick={() => setDismissedInstall(true)}
+                onClick={dismissPromptFor24Hours}
                 className="bg-white/10 hover:bg-white/20 text-emerald-100 font-semibold text-xs py-2.5 px-3 rounded-xl transition-all"
               >
                 Not now
@@ -199,3 +224,4 @@ export function PWAProvider({ children }: { children?: React.ReactNode }) {
     </>
   );
 }
+

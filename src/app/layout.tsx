@@ -122,16 +122,28 @@ export const metadata: Metadata = {
   },
 };
 
+import Script from "next/script";
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const adsenseClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || "ca-pub-2962676217775659";
+
   return (
     <html
       lang="en"
       className={`${inter.variable} ${outfit.variable} ${jetbrainsMono.variable}`}
     >
+      <head>
+        <Script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+      </head>
       <body
         suppressHydrationWarning
         className="bg-[#f4f7f5] text-[#163327] antialiased"
